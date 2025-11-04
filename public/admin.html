@@ -1,45 +1,140 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Admin - Catálogo</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administrador de Catálogo</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #2f3640;
+      color: #fff;
+      padding: 15px 20px;
+      font-size: 20px;
+    }
+    main {
+      padding: 20px;
+    }
+    #saveBtn {
+      background: #44bd32;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+    #saveBtn:hover {
+      background: #4cd137;
+    }
+    #hot {
+      width: 100%;
+      overflow-x: auto;
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <h1>Admin — Catálogo</h1>
-    <a href="/">Ver catálogo</a>
-  </header>
-
+  <header>Panel de Administración</header>
   <main>
-    <section id="loginSection">
-      <h2>Ingresar</h2>
-      <input id="password" type="password" placeholder="Contraseña">
-      <button id="loginBtn">Ingresar</button>
-      <div id="loginMsg"></div>
-    </section>
-
-    <section id="adminPanel" class="oculto">
-      <h2>Editor de Productos</h2>
-
-      <div>
-        <label>Subir imagen: </label>
-        <input type="file" id="imageInput">
-        <button id="uploadImageBtn">Subir</button>
-        <span id="uploadResult"></span>
-      </div>
-
-      <table id="tabla" class="tabla-edicion"></table>
-
-      <div style="margin-top:12px;">
-        <button id="addRow">Agregar producto</button>
-        <button id="saveBtn">Guardar cambios</button>
-        <button id="logoutBtn">Cerrar sesión</button>
-      </div>
-    </section>
+    <button id="saveBtn">💾 Guardar cambios</button>
+    <div id="hot"></div>
   </main>
 
-  <script src="admin.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.js"></script>
+  <script>
+    const container = document.querySelector('#hot');
+    let hot;
+
+    // Renderer personalizado para mostrar miniaturas de fotos
+    function imageRenderer(instance, td, row, col, prop, value, cellProperties) {
+      Handsontable.renderers.BaseRenderer.apply(this, arguments);
+      td.innerHTML = '';
+
+      if (value && typeof value === 'string' && value.trim() !== '') {
+        const img = document.createElement('img');
+        img.src = value;
+        img.width = 80;
+        img.style.borderRadius = '6px';
+        img.style.display = 'block';
+        img.style.margin = '0 auto 4px auto';
+
+        const link = document.createElement('a');
+        link.href = value;
+        link.target = '_blank';
+        link.textContent = 'Ver';
+        link.style.fontSize = '12px';
+        link.style.display = 'block';
+        link.style.textAlign = 'center';
+
+        td.appendChild(img);
+        td.appendChild(link);
+      } else {
+        td.textContent = '—';
+        td.style.textAlign = 'center';
+      }
+
+      return td;
+    }
+
+    // Cargar los datos del servidor
+    async function cargarDatos() {
+      const res = await fetch('/api/productos');
+      const data = await res.json();
+
+      hot = new Handsontable(container, {
+        data: data,
+        colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
+        columns: [
+          { data: 'Foto', renderer: imageRenderer },
+          { data: 'Título' },
+          { data: 'Precio' },
+          { data: 'Dimensiones' },
+          { data: 'Envío' },
+          { data: 'Link' }
+        ],
+        rowHeights: 100,
+        width: '100%',
+        stretchH: 'all',
+        autoWrapRow: true,
+        manualRowResize: true,
+        manualColumnResize: true,
+        licenseKey: 'non-commercial-and-evaluation',
+      });
+    }
+
+    // Guardar los cambios en el Excel
+    async function guardarCambios() {
+      const nuevosDatos = hot.getData();
+      const headers = ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'];
+      const productos = nuevosDatos.map((fila) => {
+        const obj = {};
+        headers.forEach((h, i) => (obj[h] = fila[i]));
+        return obj;
+      });
+
+      const res = await fetch('/api/guardar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productos),
+      });
+
+      if (res.ok) {
+        alert('Cambios guardados correctamente.');
+      } else {
+        alert('Error al guardar los datos.');
+      }
+    }
+
+    document.querySelector('#saveBtn').addEventListener('click', guardarCambios);
+
+    cargarDatos();
+  </script>
 </body>
 </html>
