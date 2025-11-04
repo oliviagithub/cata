@@ -6,7 +6,7 @@
   <title>Administrador de Catálogo</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.css" />
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f6fa; margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; background:#f5f6fa; margin:0; padding:0; }
     header { background:#2f3640; color:#fff; padding:15px 20px; font-size:20px; }
     main { padding:20px; }
     #loginForm { max-width:320px; margin:80px auto; background:#fff; padding:24px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
@@ -18,6 +18,7 @@
     #saveBtn:hover { background:#4cd137; }
     #hot { width:100%; overflow-x:auto; }
     #loginError { color:#c0392b; text-align:center; display:none; margin-top:8px; }
+    #errorMsg { color:#e84118; margin-bottom:10px; display:none; }
   </style>
 </head>
 <body>
@@ -33,6 +34,7 @@
 
     <!-- ADMIN -->
     <div id="adminPanel" style="display:none;">
+      <p id="errorMsg"></p>
       <button id="saveBtn">💾 Guardar cambios</button>
       <div id="hot"></div>
     </div>
@@ -43,7 +45,7 @@
     const container = document.querySelector('#hot');
     let hot;
 
-    // renderer para miniaturas
+    // renderer de imagen con link
     function imageRenderer(instance, td, row, col, prop, value, cellProperties) {
       Handsontable.renderers.BaseRenderer.apply(this, arguments);
       td.innerHTML = '';
@@ -70,6 +72,42 @@
       return td;
     }
 
+    // Mostrar login
+    function mostrarLogin() {
+      document.querySelector('#loginForm').style.display = 'block';
+      document.querySelector('#adminPanel').style.display = 'none';
+    }
+
+    // Mostrar panel admin
+    function mostrarPanel(data) {
+      document.querySelector('#loginForm').style.display = 'none';
+      document.querySelector('#adminPanel').style.display = 'block';
+      inicializarTabla(data);
+    }
+
+    // Cargar productos
+    async function cargarProductos() {
+      try {
+        const res = await fetch('/api/products', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          mostrarError("No hay productos cargados o el archivo Excel está vacío.");
+          return;
+        }
+        mostrarPanel(data);
+      } catch (err) {
+        console.error("Error cargando productos:", err);
+        mostrarError("No se pudieron cargar los productos. Ver consola.");
+      }
+    }
+
+    function mostrarError(msg) {
+      const e = document.querySelector('#errorMsg');
+      e.style.display = 'block';
+      e.textContent = msg;
+    }
+
     // LOGIN
     async function login() {
       const password = document.querySelector('#password').value.trim();
@@ -81,11 +119,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password })
         });
-
         if (res.ok) {
-          document.querySelector('#loginForm').style.display = 'none';
-          document.querySelector('#adminPanel').style.display = 'block';
-          await cargarDatos();
+          await cargarProductos();
         } else {
           const err = await res.json().catch(()=>({}));
           document.querySelector('#loginError').textContent = err.error || 'Contraseña incorrecta';
@@ -100,40 +135,31 @@
 
     document.querySelector('#loginBtn').addEventListener('click', login);
 
-    // CARGAR DATOS
-    async function cargarDatos() {
-      try {
-        const res = await fetch('/api/products', { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('Error cargando productos');
-        const data = await res.json();
-
-        if (hot) hot.destroy();
-        hot = new Handsontable(container, {
-          data: data,
-          colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
-          columns: [
-            { data: 'Foto', renderer: imageRenderer },
-            { data: 'Título' },
-            { data: 'Precio' },
-            { data: 'Dimensiones' },
-            { data: 'Envío' },
-            { data: 'Link' }
-          ],
-          rowHeights: 100,
-          width: '100%',
-          stretchH: 'all',
-          autoWrapRow: true,
-          manualRowResize: true,
-          manualColumnResize: true,
-          licenseKey: 'non-commercial-and-evaluation'
-        });
-      } catch (e) {
-        console.error(e);
-        alert('No se pudieron cargar los productos.');
-      }
+    // Inicializar tabla
+    function inicializarTabla(data) {
+      if (hot) hot.destroy();
+      hot = new Handsontable(container, {
+        data: data,
+        colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
+        columns: [
+          { data: 'Foto', renderer: imageRenderer },
+          { data: 'Título' },
+          { data: 'Precio' },
+          { data: 'Dimensiones' },
+          { data: 'Envío' },
+          { data: 'Link' }
+        ],
+        rowHeights: 100,
+        width: '100%',
+        stretchH: 'all',
+        autoWrapRow: true,
+        manualRowResize: true,
+        manualColumnResize: true,
+        licenseKey: 'non-commercial-and-evaluation'
+      });
     }
 
-    // GUARDAR cambios
+    // Guardar cambios
     async function guardarCambios() {
       try {
         const nuevosDatos = hot.getData();
@@ -142,10 +168,7 @@
           const obj = {};
           headers.forEach((h,i) => {
             let valor = fila[i] ?? '';
-            // limpiar cualquier HTML que haya quedado en "Foto"
-            if (h === 'Foto') {
-              valor = String(valor).replace(/<[^>]+>/g, '').trim();
-            }
+            if (h === 'Foto') valor = String(valor).replace(/<[^>]+>/g, '').trim();
             obj[h] = valor;
           });
           return obj;
@@ -162,7 +185,6 @@
           alert('Cambios guardados correctamente.');
         } else {
           const err = await res.json().catch(()=>({}));
-          console.error('Error guardando:', err);
           alert('Error al guardar: ' + (err.error || res.status));
         }
       } catch (e) {
