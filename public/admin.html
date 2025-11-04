@@ -4,104 +4,158 @@
   <meta charset="UTF-8">
   <title>Panel de Administración</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.full.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #login, #admin {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 15px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #tabla {
+      margin-top: 20px;
+    }
+    .foto-miniatura {
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .top-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    #volver-btn {
+      background: #444;
+    }
+    #volver-btn:hover {
+      background: #000;
+    }
+  </style>
 </head>
 <body>
-  <h1>Administración del Catálogo</h1>
+  <h1>Panel de Administración</h1>
 
-  <div id="login-container">
+  <div id="login">
     <input type="password" id="password" placeholder="Contraseña">
-    <button id="btn-login">Ingresar</button>
+    <button onclick="login()">Ingresar</button>
+    <p id="msg" style="color:red;"></p>
   </div>
 
-  <div id="admin-panel" style="display:none;">
-    <div id="tabla" class="tabla"></div>
-    <button id="btn-guardar">Guardar cambios</button>
-    <button id="btn-logout">Salir</button>
+  <div id="admin" style="display:none;">
+    <div class="top-buttons">
+      <button id="guardar-btn" onclick="guardarCambios()">Guardar cambios</button>
+      <button id="volver-btn" onclick="window.location.href='index.html'">Volver al catálogo</button>
+    </div>
+    <div id="tabla"></div>
   </div>
 
   <script>
-    const tablaDiv = document.getElementById('tabla');
     let hot;
 
     async function login() {
       const password = document.getElementById('password').value;
       const res = await fetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ password })
       });
       if (res.ok) {
-        document.getElementById('login-container').style.display = 'none';
-        document.getElementById('admin-panel').style.display = 'block';
-        cargarProductos();
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('admin').style.display = 'block';
+        cargarTabla();
       } else {
-        alert('Contraseña incorrecta');
+        document.getElementById('msg').textContent = 'Contraseña incorrecta';
       }
     }
 
-    async function cargarProductos() {
-      const res = await fetch('/api/products', { credentials: 'include' });
-      const productos = await res.json();
-      const data = productos.map(p => [
-        p.Foto || '',
-        p.Título || '',
-        p.Precio || '',
-        p.Dimensiones || '',
-        p.Envío || '',
-        p.Link || ''
-      ]);
+    async function cargarTabla() {
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      const cont = document.getElementById('tabla');
+      cont.innerHTML = '';
 
-      hot = new Handsontable(tablaDiv, {
+      const contenedor = document.createElement('div');
+      cont.appendChild(contenedor);
+
+      const columnas = Object.keys(data[0] || {});
+
+      hot = new Handsontable(contenedor, {
         data,
-        colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
-        columns: [
-          { data: 0, renderer: (instance, td, row, col, prop, value) => {
-              td.innerHTML = value ? `<img src="${value}" style="height:50px">` : '';
-            }
-          },
-          { data: 1 },
-          { data: 2 },
-          { data: 3 },
-          { data: 4 },
-          { data: 5 }
-        ],
+        colHeaders: columnas,
+        columns: columnas.map(c => ({
+          data: c,
+          renderer: c === 'Foto' ? imagenRenderer : undefined
+        })),
         rowHeaders: true,
-        minSpareRows: 1,
+        stretchH: 'all',
+        width: '100%',
+        height: 500,
         licenseKey: 'non-commercial-and-evaluation'
       });
     }
 
+    function imagenRenderer(instance, td, row, col, prop, value, cellProperties) {
+      td.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = value || 'https://via.placeholder.com/80x60?text=Sin+Imagen';
+      img.className = 'foto-miniatura';
+      img.onerror = () => img.src = 'https://via.placeholder.com/80x60?text=Sin+Imagen';
+      td.appendChild(img);
+      td.style.textAlign = 'center';
+    }
+
     async function guardarCambios() {
-      const headers = ['Foto','Título','Precio','Dimensiones','Envío','Link'];
-      const nuevosDatos = hot.getData().filter(row => row.some(v => v));
-      const productos = nuevosDatos.map(fila => {
+      const datos = hot.getData();
+      const headers = hot.getColHeader();
+      const productos = datos.map(fila => {
         const obj = {};
-        headers.forEach((h,i) => obj[h] = fila[i] || '');
+        headers.forEach((h, i) => obj[h] = fila[i]);
         return obj;
       });
 
       const res = await fetch('/api/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ products: productos })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(productos)
       });
 
-      if (res.ok) alert('Cambios guardados correctamente');
+      if (res.ok) alert('Cambios guardados con éxito');
       else alert('Error al guardar');
     }
-
-    async function logout() {
-      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-      location.reload();
-    }
-
-    document.getElementById('btn-login').addEventListener('click', login);
-    document.getElementById('btn-guardar').addEventListener('click', guardarCambios);
-    document.getElementById('btn-logout').addEventListener('click', logout);
   </script>
 </body>
 </html>
