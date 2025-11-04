@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin - Catálogo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Admin — Catálogo</h1>
+    <a href="/">Ver catálogo</a>
+  </header>
+
+  <main>
+    <section id="loginSection">
+      <h2>Ingresar</h2>
+      <input id="password" type="password" placeholder="Contraseña">
+      <button id="loginBtn">Ingresar</button>
+      <div id="loginMsg"></div>
+    </section>
+
+    <section id="adminPanel" class="oculto">
+      <h2>Editor de Productos</h2>
+
+      <div>
+        <label>Subir imagen: </label>
+        <input type="file" id="imageInput">
+        <button id="uploadImageBtn">Subir</button>
+        <span id="uploadResult"></span>
+      </div>
+
+      <table id="tabla" class="tabla-edicion"></table>
+
+      <div style="margin-top:12px;">
+        <button id="addRow">Agregar producto</button>
+        <button id="saveBtn">Guardar cambios</button>
+        <button id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>
