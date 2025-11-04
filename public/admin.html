@@ -77,13 +77,12 @@
       try {
         const res = await fetch('/api/login', {
           method: 'POST',
-          credentials: 'same-origin',       // importante: para que la cookie de sesión quede
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password })
         });
 
         if (res.ok) {
-          // mostrar admin
           document.querySelector('#loginForm').style.display = 'none';
           document.querySelector('#adminPanel').style.display = 'block';
           await cargarDatos();
@@ -101,14 +100,13 @@
 
     document.querySelector('#loginBtn').addEventListener('click', login);
 
-    // CARGAR DATOS (usa la ruta que está en server.js)
+    // CARGAR DATOS
     async function cargarDatos() {
       try {
         const res = await fetch('/api/products', { credentials: 'same-origin' });
         if (!res.ok) throw new Error('Error cargando productos');
         const data = await res.json();
 
-        // inicializar Handsontable
         if (hot) hot.destroy();
         hot = new Handsontable(container, {
           data: data,
@@ -131,18 +129,25 @@
         });
       } catch (e) {
         console.error(e);
-        alert('No se pudieron cargar los productos. Revisá la consola del navegador y los logs del servidor.');
+        alert('No se pudieron cargar los productos.');
       }
     }
 
-    // GUARDAR (envía { products: [...] } como espera el server)
+    // GUARDAR cambios
     async function guardarCambios() {
       try {
         const nuevosDatos = hot.getData();
         const headers = ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'];
         const productos = nuevosDatos.map(fila => {
           const obj = {};
-          headers.forEach((h,i) => obj[h] = fila[i] ?? '');
+          headers.forEach((h,i) => {
+            let valor = fila[i] ?? '';
+            // limpiar cualquier HTML que haya quedado en "Foto"
+            if (h === 'Foto') {
+              valor = String(valor).replace(/<[^>]+>/g, '').trim();
+            }
+            obj[h] = valor;
+          });
           return obj;
         });
 
