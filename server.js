@@ -17,8 +17,6 @@ const app = express();
 // ===========================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, "public")));
 
 // ===========================
@@ -33,7 +31,7 @@ app.use(
     cookie: {
       secure: true,
       sameSite: "none",
-      maxAge: 1000 * 60 * 60, // 1h
+      maxAge: 1000 * 60 * 60
     },
   })
 );
@@ -41,14 +39,14 @@ app.use(
 // ===========================
 // CONFIGURACIÓN
 // ===========================
-const PASSWORD = process.env.ADMIN_PASSWORD || "1234";
+const PASSWORD = process.env.ADMIN_PASSWORD || "admin";
 const EXCEL_PATH = path.join(__dirname, "productos.xlsx");
 
 // ===========================
 // RUTAS API
 // ===========================
 
-// 🔹 Ruta pública: catálogo (cualquiera puede verla)
+// 🔹 Obtener productos (público)
 app.get("/api/products", async (req, res) => {
   try {
     if (!fs.existsSync(EXCEL_PATH))
@@ -64,7 +62,7 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
-// 🔹 Login administrador
+// 🔹 Login
 app.post("/api/login", (req, res) => {
   const { password } = req.body;
   if (password === PASSWORD) {
@@ -75,12 +73,12 @@ app.post("/api/login", (req, res) => {
   }
 });
 
-// 🔹 Logout administrador
+// 🔹 Logout
 app.post("/api/logout", (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-// 🔹 Ruta protegida: guardar productos (solo admin)
+// 🔹 Guardar productos (solo admin)
 app.post("/api/save", async (req, res) => {
   if (!req.session.loggedIn)
     return res.status(401).json({ error: "No autorizado" });
