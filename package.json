@@ -1,17 +1,14 @@
 {
-  "name": "catalogo-node",
+  "name": "catalogo",
   "version": "1.0.0",
-  "description": "Catálogo con Excel y panel admin",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.0",
-    "express": "^4.18.2",
+    "express": "^4.19.2",
     "express-session": "^1.17.3",
-    "multer": "^1.4.5-lts.1",
     "xlsx": "^0.18.5"
   }
 }
