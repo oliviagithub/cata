@@ -18,7 +18,6 @@
     #saveBtn:hover { background:#4cd137; }
     #hot { width:100%; overflow-x:auto; }
     #loginError { color:#c0392b; text-align:center; display:none; margin-top:8px; }
-    #errorMsg { color:#e84118; margin-bottom:10px; display:none; }
   </style>
 </head>
 <body>
@@ -34,7 +33,6 @@
 
     <!-- ADMIN -->
     <div id="adminPanel" style="display:none;">
-      <p id="errorMsg"></p>
       <button id="saveBtn">💾 Guardar cambios</button>
       <div id="hot"></div>
     </div>
@@ -44,8 +42,9 @@
   <script>
     const container = document.querySelector('#hot');
     let hot;
+    let productosCache = [];
 
-    // renderer de imagen con link
+    // renderer miniatura
     function imageRenderer(instance, td, row, col, prop, value, cellProperties) {
       Handsontable.renderers.BaseRenderer.apply(this, arguments);
       td.innerHTML = '';
@@ -72,70 +71,7 @@
       return td;
     }
 
-    // Mostrar login
-    function mostrarLogin() {
-      document.querySelector('#loginForm').style.display = 'block';
-      document.querySelector('#adminPanel').style.display = 'none';
-    }
-
-    // Mostrar panel admin
-    function mostrarPanel(data) {
-      document.querySelector('#loginForm').style.display = 'none';
-      document.querySelector('#adminPanel').style.display = 'block';
-      inicializarTabla(data);
-    }
-
-    // Cargar productos
-    async function cargarProductos() {
-      try {
-        const res = await fetch('/api/products', { credentials: 'same-origin' });
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) {
-          mostrarError("No hay productos cargados o el archivo Excel está vacío.");
-          return;
-        }
-        mostrarPanel(data);
-      } catch (err) {
-        console.error("Error cargando productos:", err);
-        mostrarError("No se pudieron cargar los productos. Ver consola.");
-      }
-    }
-
-    function mostrarError(msg) {
-      const e = document.querySelector('#errorMsg');
-      e.style.display = 'block';
-      e.textContent = msg;
-    }
-
-    // LOGIN
-    async function login() {
-      const password = document.querySelector('#password').value.trim();
-      document.querySelector('#loginError').style.display = 'none';
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-        if (res.ok) {
-          await cargarProductos();
-        } else {
-          const err = await res.json().catch(()=>({}));
-          document.querySelector('#loginError').textContent = err.error || 'Contraseña incorrecta';
-          document.querySelector('#loginError').style.display = 'block';
-        }
-      } catch (e) {
-        console.error('Error en login:', e);
-        document.querySelector('#loginError').textContent = 'Error de red';
-        document.querySelector('#loginError').style.display = 'block';
-      }
-    }
-
-    document.querySelector('#loginBtn').addEventListener('click', login);
-
-    // Inicializar tabla
+    // inicializar tabla
     function inicializarTabla(data) {
       if (hot) hot.destroy();
       hot = new Handsontable(container, {
@@ -159,7 +95,39 @@
       });
     }
 
-    // Guardar cambios
+    // LOGIN
+    async function login() {
+      const password = document.querySelector('#password').value.trim();
+      document.querySelector('#loginError').style.display = 'none';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (res.ok) {
+          // cargar productos directamente (sin cookie)
+          const productos = await fetch('/api/products').then(r => r.json());
+          productosCache = productos;
+          document.querySelector('#loginForm').style.display = 'none';
+          document.querySelector('#adminPanel').style.display = 'block';
+          inicializarTabla(productosCache);
+        } else {
+          const err = await res.json().catch(()=>({}));
+          document.querySelector('#loginError').textContent = err.error || 'Contraseña incorrecta';
+          document.querySelector('#loginError').style.display = 'block';
+        }
+      } catch (e) {
+        console.error('Error en login:', e);
+        document.querySelector('#loginError').textContent = 'Error de red';
+        document.querySelector('#loginError').style.display = 'block';
+      }
+    }
+
+    document.querySelector('#loginBtn').addEventListener('click', login);
+
+    // GUARDAR
     async function guardarCambios() {
       try {
         const nuevosDatos = hot.getData();
@@ -176,7 +144,6 @@
 
         const res = await fetch('/api/save', {
           method: 'POST',
-          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ products: productos })
         });
