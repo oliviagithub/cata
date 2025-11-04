@@ -1,21 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Catálogo</title>
+  <meta charset="UTF-8">
+  <title>Catálogo de Productos</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Catálogo de Productos</h1>
-    <a href="/admin.html">Admin</a>
-  </header>
+  <h1>Catálogo de Productos</h1>
+  <div id="catalogo" class="grid"></div>
 
-  <main>
-    <div id="catalogo" class="catalogo"></div>
-  </main>
+  <script>
+    async function cargarProductos() {
+      const res = await fetch('/api/products');
+      const productos = await res.json();
+      const cont = document.getElementById('catalogo');
+      cont.innerHTML = '';
 
-  <script src="script.js"></script>
+      productos.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'producto';
+        card.innerHTML = `
+          <img src="${p.Foto}" alt="${p.Título}" onerror="this.src='https://via.placeholder.com/150'">
+          <h3>${p.Título || 'Sin título'}</h3>
+          <p><b>Precio:</b> ${p.Precio || '-'}</p>
+          <p><b>Dimensiones:</b> ${p.Dimensiones || '-'}</p>
+          <p><b>Envío:</b> ${p.Envío || '-'}</p>
+          <a href="${p.Link || '#'}" target="_blank">Ver más</a>
+        `;
+        cont.appendChild(card);
+      });
+    }
+    cargarProductos();
+  </script>
 </body>
 </html>
