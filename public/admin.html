@@ -1,166 +1,107 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Administrador de Catálogo</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.css" />
-  <style>
-    body { font-family: Arial, sans-serif; background:#f5f6fa; margin:0; padding:0; }
-    header { background:#2f3640; color:#fff; padding:15px 20px; font-size:20px; }
-    main { padding:20px; }
-    #loginForm { max-width:320px; margin:80px auto; background:#fff; padding:24px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
-    #loginForm h2 { text-align:center; margin-bottom:12px; }
-    #loginForm input { width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px; }
-    #loginForm button { width:100%; background:#273c75; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:16px; }
-    #loginForm button:hover { background:#40739e; }
-    #saveBtn { background:#44bd32; color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-size:16px; margin-bottom:12px; }
-    #saveBtn:hover { background:#4cd137; }
-    #hot { width:100%; overflow-x:auto; }
-    #loginError { color:#c0392b; text-align:center; display:none; margin-top:8px; }
-  </style>
+  <meta charset="UTF-8">
+  <title>Panel de Administración</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.js"></script>
 </head>
 <body>
-  <header>Panel de Administración</header>
-  <main>
-    <!-- LOGIN -->
-    <div id="loginForm">
-      <h2>Acceso Administrador</h2>
-      <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password" />
-      <button id="loginBtn">Ingresar</button>
-      <p id="loginError">Contraseña incorrecta</p>
-    </div>
+  <h1>Administración del Catálogo</h1>
 
-    <!-- ADMIN -->
-    <div id="adminPanel" style="display:none;">
-      <button id="saveBtn">💾 Guardar cambios</button>
-      <div id="hot"></div>
-    </div>
-  </main>
+  <div id="login-container">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button id="btn-login">Ingresar</button>
+  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.js"></script>
+  <div id="admin-panel" style="display:none;">
+    <div id="tabla" class="tabla"></div>
+    <button id="btn-guardar">Guardar cambios</button>
+    <button id="btn-logout">Salir</button>
+  </div>
+
   <script>
-    const container = document.querySelector('#hot');
+    const tablaDiv = document.getElementById('tabla');
     let hot;
-    let productosCache = [];
 
-    // renderer miniatura
-    function imageRenderer(instance, td, row, col, prop, value, cellProperties) {
-      Handsontable.renderers.BaseRenderer.apply(this, arguments);
-      td.innerHTML = '';
-      if (value && typeof value === 'string' && value.trim() !== '') {
-        const img = document.createElement('img');
-        img.src = value;
-        img.width = 80;
-        img.style.borderRadius = '6px';
-        img.style.display = 'block';
-        img.style.margin = '0 auto 4px auto';
-        const link = document.createElement('a');
-        link.href = value;
-        link.target = '_blank';
-        link.textContent = 'Ver';
-        link.style.fontSize = '12px';
-        link.style.display = 'block';
-        link.style.textAlign = 'center';
-        td.appendChild(img);
-        td.appendChild(link);
+    async function login() {
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password })
+      });
+      if (res.ok) {
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        cargarProductos();
       } else {
-        td.textContent = '—';
-        td.style.textAlign = 'center';
+        alert('Contraseña incorrecta');
       }
-      return td;
     }
 
-    // inicializar tabla
-    function inicializarTabla(data) {
-      if (hot) hot.destroy();
-      hot = new Handsontable(container, {
-        data: data,
+    async function cargarProductos() {
+      const res = await fetch('/api/products', { credentials: 'include' });
+      const productos = await res.json();
+      const data = productos.map(p => [
+        p.Foto || '',
+        p.Título || '',
+        p.Precio || '',
+        p.Dimensiones || '',
+        p.Envío || '',
+        p.Link || ''
+      ]);
+
+      hot = new Handsontable(tablaDiv, {
+        data,
         colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
         columns: [
-          { data: 'Foto', renderer: imageRenderer },
-          { data: 'Título' },
-          { data: 'Precio' },
-          { data: 'Dimensiones' },
-          { data: 'Envío' },
-          { data: 'Link' }
+          { data: 0, renderer: (instance, td, row, col, prop, value) => {
+              td.innerHTML = value ? `<img src="${value}" style="height:50px">` : '';
+            }
+          },
+          { data: 1 },
+          { data: 2 },
+          { data: 3 },
+          { data: 4 },
+          { data: 5 }
         ],
-        rowHeights: 100,
-        width: '100%',
-        stretchH: 'all',
-        autoWrapRow: true,
-        manualRowResize: true,
-        manualColumnResize: true,
+        rowHeaders: true,
+        minSpareRows: 1,
         licenseKey: 'non-commercial-and-evaluation'
       });
     }
 
-    // LOGIN
-    async function login() {
-      const password = document.querySelector('#password').value.trim();
-      document.querySelector('#loginError').style.display = 'none';
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-
-        if (res.ok) {
-          // cargar productos directamente (sin cookie)
-          const productos = await fetch('/api/products').then(r => r.json());
-          productosCache = productos;
-          document.querySelector('#loginForm').style.display = 'none';
-          document.querySelector('#adminPanel').style.display = 'block';
-          inicializarTabla(productosCache);
-        } else {
-          const err = await res.json().catch(()=>({}));
-          document.querySelector('#loginError').textContent = err.error || 'Contraseña incorrecta';
-          document.querySelector('#loginError').style.display = 'block';
-        }
-      } catch (e) {
-        console.error('Error en login:', e);
-        document.querySelector('#loginError').textContent = 'Error de red';
-        document.querySelector('#loginError').style.display = 'block';
-      }
-    }
-
-    document.querySelector('#loginBtn').addEventListener('click', login);
-
-    // GUARDAR
     async function guardarCambios() {
-      try {
-        const nuevosDatos = hot.getData();
-        const headers = ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'];
-        const productos = nuevosDatos.map(fila => {
-          const obj = {};
-          headers.forEach((h,i) => {
-            let valor = fila[i] ?? '';
-            if (h === 'Foto') valor = String(valor).replace(/<[^>]+>/g, '').trim();
-            obj[h] = valor;
-          });
-          return obj;
-        });
+      const headers = ['Foto','Título','Precio','Dimensiones','Envío','Link'];
+      const nuevosDatos = hot.getData().filter(row => row.some(v => v));
+      const productos = nuevosDatos.map(fila => {
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = fila[i] || '');
+        return obj;
+      });
 
-        const res = await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: productos })
-        });
+      const res = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ products: productos })
+      });
 
-        if (res.ok) {
-          alert('Cambios guardados correctamente.');
-        } else {
-          const err = await res.json().catch(()=>({}));
-          alert('Error al guardar: ' + (err.error || res.status));
-        }
-      } catch (e) {
-        console.error('Error guardando:', e);
-        alert('Error guardando (ver consola).');
-      }
+      if (res.ok) alert('Cambios guardados correctamente');
+      else alert('Error al guardar');
     }
 
-    document.querySelector('#saveBtn').addEventListener('click', guardarCambios);
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+      location.reload();
+    }
+
+    document.getElementById('btn-login').addEventListener('click', login);
+    document.getElementById('btn-guardar').addEventListener('click', guardarCambios);
+    document.getElementById('btn-logout').addEventListener('click', logout);
   </script>
 </body>
 </html>
