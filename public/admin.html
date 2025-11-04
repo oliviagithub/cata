@@ -6,84 +6,32 @@
   <title>Administrador de Catálogo</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.1.0/dist/handsontable.min.css" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f6fa;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #2f3640;
-      color: #fff;
-      padding: 15px 20px;
-      font-size: 20px;
-    }
-    main {
-      padding: 20px;
-    }
-    #loginForm {
-      max-width: 300px;
-      margin: 100px auto;
-      background: white;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    #loginForm h2 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    #loginForm input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    #loginForm button {
-      width: 100%;
-      background: #273c75;
-      color: white;
-      border: none;
-      padding: 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    #loginForm button:hover {
-      background: #40739e;
-    }
-    #saveBtn {
-      background: #44bd32;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-      margin-bottom: 15px;
-    }
-    #saveBtn:hover {
-      background: #4cd137;
-    }
-    #hot {
-      width: 100%;
-      overflow-x: auto;
-    }
+    body { font-family: Arial, sans-serif; background: #f5f6fa; margin:0; padding:0; }
+    header { background:#2f3640; color:#fff; padding:15px 20px; font-size:20px; }
+    main { padding:20px; }
+    #loginForm { max-width:320px; margin:80px auto; background:#fff; padding:24px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+    #loginForm h2 { text-align:center; margin-bottom:12px; }
+    #loginForm input { width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px; }
+    #loginForm button { width:100%; background:#273c75; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:16px; }
+    #loginForm button:hover { background:#40739e; }
+    #saveBtn { background:#44bd32; color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-size:16px; margin-bottom:12px; }
+    #saveBtn:hover { background:#4cd137; }
+    #hot { width:100%; overflow-x:auto; }
+    #loginError { color:#c0392b; text-align:center; display:none; margin-top:8px; }
   </style>
 </head>
 <body>
   <header>Panel de Administración</header>
   <main>
-    <!-- FORMULARIO DE LOGIN -->
+    <!-- LOGIN -->
     <div id="loginForm">
       <h2>Acceso Administrador</h2>
-      <input type="password" id="password" placeholder="Contraseña" />
+      <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password" />
       <button id="loginBtn">Ingresar</button>
-      <p id="loginError" style="color:red;text-align:center;display:none;">Contraseña incorrecta</p>
+      <p id="loginError">Contraseña incorrecta</p>
     </div>
 
-    <!-- PANEL DE EDICIÓN -->
+    <!-- ADMIN -->
     <div id="adminPanel" style="display:none;">
       <button id="saveBtn">💾 Guardar cambios</button>
       <div id="hot"></div>
@@ -95,11 +43,10 @@
     const container = document.querySelector('#hot');
     let hot;
 
-    // Renderer personalizado para mostrar miniaturas
+    // renderer para miniaturas
     function imageRenderer(instance, td, row, col, prop, value, cellProperties) {
       Handsontable.renderers.BaseRenderer.apply(this, arguments);
       td.innerHTML = '';
-
       if (value && typeof value === 'string' && value.trim() !== '') {
         const img = document.createElement('img');
         img.src = value;
@@ -107,7 +54,6 @@
         img.style.borderRadius = '6px';
         img.style.display = 'block';
         img.style.margin = '0 auto 4px auto';
-
         const link = document.createElement('a');
         link.href = value;
         link.target = '_blank';
@@ -115,81 +61,109 @@
         link.style.fontSize = '12px';
         link.style.display = 'block';
         link.style.textAlign = 'center';
-
         td.appendChild(img);
         td.appendChild(link);
       } else {
         td.textContent = '—';
         td.style.textAlign = 'center';
       }
-
       return td;
     }
 
-    // Función de login
+    // LOGIN
     async function login() {
       const password = document.querySelector('#password').value.trim();
-      const res = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
+      document.querySelector('#loginError').style.display = 'none';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          credentials: 'same-origin',       // importante: para que la cookie de sesión quede
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
 
-      if (res.ok) {
-        document.querySelector('#loginForm').style.display = 'none';
-        document.querySelector('#adminPanel').style.display = 'block';
-        cargarDatos();
-      } else {
+        if (res.ok) {
+          // mostrar admin
+          document.querySelector('#loginForm').style.display = 'none';
+          document.querySelector('#adminPanel').style.display = 'block';
+          await cargarDatos();
+        } else {
+          const err = await res.json().catch(()=>({}));
+          document.querySelector('#loginError').textContent = err.error || 'Contraseña incorrecta';
+          document.querySelector('#loginError').style.display = 'block';
+        }
+      } catch (e) {
+        console.error('Error en login:', e);
+        document.querySelector('#loginError').textContent = 'Error de red';
         document.querySelector('#loginError').style.display = 'block';
       }
     }
 
     document.querySelector('#loginBtn').addEventListener('click', login);
 
-    // Cargar datos del Excel
+    // CARGAR DATOS (usa la ruta que está en server.js)
     async function cargarDatos() {
-      const res = await fetch('/api/productos');
-      const data = await res.json();
+      try {
+        const res = await fetch('/api/products', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('Error cargando productos');
+        const data = await res.json();
 
-      hot = new Handsontable(container, {
-        data: data,
-        colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
-        columns: [
-          { data: 'Foto', renderer: imageRenderer },
-          { data: 'Título' },
-          { data: 'Precio' },
-          { data: 'Dimensiones' },
-          { data: 'Envío' },
-          { data: 'Link' }
-        ],
-        rowHeights: 100,
-        width: '100%',
-        stretchH: 'all',
-        autoWrapRow: true,
-        manualRowResize: true,
-        manualColumnResize: true,
-        licenseKey: 'non-commercial-and-evaluation'
-      });
+        // inicializar Handsontable
+        if (hot) hot.destroy();
+        hot = new Handsontable(container, {
+          data: data,
+          colHeaders: ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'],
+          columns: [
+            { data: 'Foto', renderer: imageRenderer },
+            { data: 'Título' },
+            { data: 'Precio' },
+            { data: 'Dimensiones' },
+            { data: 'Envío' },
+            { data: 'Link' }
+          ],
+          rowHeights: 100,
+          width: '100%',
+          stretchH: 'all',
+          autoWrapRow: true,
+          manualRowResize: true,
+          manualColumnResize: true,
+          licenseKey: 'non-commercial-and-evaluation'
+        });
+      } catch (e) {
+        console.error(e);
+        alert('No se pudieron cargar los productos. Revisá la consola del navegador y los logs del servidor.');
+      }
     }
 
-    // Guardar cambios en el Excel
+    // GUARDAR (envía { products: [...] } como espera el server)
     async function guardarCambios() {
-      const nuevosDatos = hot.getData();
-      const headers = ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'];
-      const productos = nuevosDatos.map((fila) => {
-        const obj = {};
-        headers.forEach((h, i) => (obj[h] = fila[i]));
-        return obj;
-      });
+      try {
+        const nuevosDatos = hot.getData();
+        const headers = ['Foto', 'Título', 'Precio', 'Dimensiones', 'Envío', 'Link'];
+        const productos = nuevosDatos.map(fila => {
+          const obj = {};
+          headers.forEach((h,i) => obj[h] = fila[i] ?? '');
+          return obj;
+        });
 
-      const res = await fetch('/api/guardar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productos)
-      });
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: productos })
+        });
 
-      if (res.ok) alert('Cambios guardados correctamente.');
-      else alert('Error al guardar los datos.');
+        if (res.ok) {
+          alert('Cambios guardados correctamente.');
+        } else {
+          const err = await res.json().catch(()=>({}));
+          console.error('Error guardando:', err);
+          alert('Error al guardar: ' + (err.error || res.status));
+        }
+      } catch (e) {
+        console.error('Error guardando:', e);
+        alert('Error guardando (ver consola).');
+      }
     }
 
     document.querySelector('#saveBtn').addEventListener('click', guardarCambios);
