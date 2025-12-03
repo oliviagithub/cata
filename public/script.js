@@ -1,32 +1,34 @@
-// script.js
-async function loadCatalog() {
-  try {
-    const res = await fetch('/api/products');
-    const products = await res.json();
-    const container = document.getElementById('catalogo');
-    container.innerHTML = '';
+let modified = {};
 
-    products.forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'card';
+document.querySelectorAll(".input").forEach(input => {
+  input.addEventListener("input", () => {
+    let row = input.dataset.row;
+    let col = input.dataset.col;
 
-      const imgSrc = p.Foto ? p.Foto : '/images/placeholder.png';
+    if (!modified[row]) modified[row] = {};
+    modified[row][col] = input.value;
+  });
+});
 
-      card.innerHTML = `
-        <img src="${imgSrc}" alt="${p.Título}">
-        <h3>${p.Título || 'Sin título'}</h3>
-        <p><strong>Precio:</strong> ${p.Precio || '-'}</p>
-        <p><strong>Dimensiones:</strong> ${p.Dimensiones || '-'}</p>
-        <p><strong>Envío:</strong> ${p['Envío'] || '-'}</p>
-        <p><a href="${p.Link || '#'}" target="_blank">Ver más</a></p>
-      `;
-      container.appendChild(card);
-    });
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById('catalogo').innerText = 'Error cargando productos.';
-  }
+function save() {
+  fetch("/admin/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "data=" + encodeURIComponent(JSON.stringify(getUpdatedData()))
+  })
+    .then(r => r.text())
+    .then(alert);
 }
 
-document.addEventListener('DOMContentLoaded', loadCatalog);
+function getUpdatedData() {
+  let rows = [];
+  document.querySelectorAll("tr").forEach((tr, i) => {
+    if (i === 0) return;
+    let obj = {};
+    tr.querySelectorAll(".input").forEach(input => {
+      obj[input.dataset.col] = input.value;
+    });
+    rows.push(obj);
+  });
+  return rows;
+}
