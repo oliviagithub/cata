@@ -12,111 +12,91 @@
       background: #f7f7f7;
       padding: 20px;
     }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+    h1 { text-align: center; }
     #login, #admin {
-      max-width: 900px;
-      margin: 0 auto;
+      max-width: 1000px;
+      margin: 0 auto 20px;
       background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 15px;
-      margin-right: 10px;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    #tabla {
-      margin-top: 20px;
-    }
-    .foto-miniatura {
-      width: 80px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 6px;
-    }
-    .top-buttons {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    #volver-btn {
-      background: #444;
-    }
-    #volver-btn:hover {
-      background: #000;
-    }
+    input[type="password"] { width:100%; padding:10px; margin-bottom:8px; font-size:16px; }
+    button { background:#007bff; color:white; border:none; padding:10px 14px; border-radius:6px; cursor:pointer; margin-right:8px; }
+    button:hover { background:#0056b3; }
+    #tabla { margin-top:12px; }
+    .foto-miniatura { width:80px; height:60px; object-fit:cover; border-radius:6px; }
+    .top-buttons { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    #msg { color:#c0392b; margin-top:8px; }
   </style>
 </head>
 <body>
   <h1>Panel de Administración</h1>
 
+  <!-- LOGIN -->
   <div id="login">
     <input type="password" id="password" placeholder="Contraseña">
-    <button onclick="login()">Ingresar</button>
-    <p id="msg" style="color:red;"></p>
+    <div style="margin-top:8px;">
+      <button id="btn-login">Ingresar</button>
+    </div>
+    <p id="msg"></p>
   </div>
 
+  <!-- ADMIN (oculto hasta login) -->
   <div id="admin" style="display:none;">
     <div class="top-buttons">
-      <button id="guardar-btn" onclick="guardarCambios()">Guardar cambios</button>
-      <button id="volver-btn" onclick="window.location.href='index.html'">Volver al catálogo</button>
+      <div>
+        <button id="btn-guardar">Guardar cambios</button>
+        <button id="btn-logout">Salir</button>
+      </div>
+      <div>
+        <button id="volver-btn" onclick="window.location.href='index.html'">Volver al catálogo</button>
+      </div>
     </div>
+
     <div id="tabla"></div>
   </div>
 
   <script>
     let hot;
 
-    async function login() {
-      const password = document.getElementById('password').value;
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ password })
-      });
-      if (res.ok) {
-        document.getElementById('login').style.display = 'none';
-        document.getElementById('admin').style.display = 'block';
-        cargarTabla();
-      } else {
-        document.getElementById('msg').textContent = 'Contraseña incorrecta';
-      }
+    // Renderer que muestra miniatura de la URL en la celda "Foto"
+    function imagenRenderer(instance, td, row, col, prop, value, cellProperties) {
+      Handsontable.renderers.BaseRenderer.apply(this, arguments);
+      td.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = value && String(value).trim() !== '' ? value : 'https://via.placeholder.com/80x60?text=Sin+Imagen';
+      img.className = 'foto-miniatura';
+      img.onerror = () => img.src = 'https://via.placeholder.com/80x60?text=Sin+Imagen';
+      td.appendChild(img);
+      td.style.textAlign = 'center';
+      return td;
     }
 
-    async function cargarTabla() {
+    // Cargar productos (público) — se usa para inicializar la tabla después del login
+    async function cargarProductosParaAdmin() {
       const res = await fetch('/api/products');
+      if (!res.ok) throw new Error('No se pudieron cargar los productos');
       const data = await res.json();
+      return data;
+    }
+
+    // Inicializar Handsontable con los datos
+    function inicializarTabla(data) {
       const cont = document.getElementById('tabla');
       cont.innerHTML = '';
-
       const contenedor = document.createElement('div');
       cont.appendChild(contenedor);
 
-      const columnas = Object.keys(data[0] || {});
+      // si no hay columnas (archivo vacío), definimos las columnas por defecto
+      const sample = data && data.length > 0 ? data[0] : { Foto:'', Título:'', Precio:'', Dimensiones:'', Envío:'', Link:'' };
+      const columns = Object.keys(sample);
 
+      if (hot) hot.destroy();
       hot = new Handsontable(contenedor, {
-        data,
-        colHeaders: columnas,
-        columns: columnas.map(c => ({
+        data: data,
+        colHeaders: columns,
+        columns: columns.map(c => ({
           data: c,
           renderer: c === 'Foto' ? imagenRenderer : undefined
         })),
@@ -124,38 +104,89 @@
         stretchH: 'all',
         width: '100%',
         height: 500,
+        minSpareRows: 1,
         licenseKey: 'non-commercial-and-evaluation'
       });
     }
 
-    function imagenRenderer(instance, td, row, col, prop, value, cellProperties) {
-      td.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = value || 'https://via.placeholder.com/80x60?text=Sin+Imagen';
-      img.className = 'foto-miniatura';
-      img.onerror = () => img.src = 'https://via.placeholder.com/80x60?text=Sin+Imagen';
-      td.appendChild(img);
-      td.style.textAlign = 'center';
+    // LOGIN: incluye credentials para que la cookie de sesión quede guardada
+    async function login() {
+      document.getElementById('msg').textContent = '';
+      const password = document.getElementById('password').value || '';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(()=>({}));
+          document.getElementById('msg').textContent = err.error || 'Login fallido';
+          return;
+        }
+
+        // cargar productos y mostrar panel
+        const productos = await cargarProductosParaAdmin();
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('admin').style.display = 'block';
+        inicializarTabla(productos);
+
+      } catch (e) {
+        console.error('Error login:', e);
+        document.getElementById('msg').textContent = 'Error de red al loguear';
+      }
     }
 
+    document.getElementById('btn-login').addEventListener('click', login);
+
+    // Guardar cambios: ENVIAR { products: [...] } (el servidor espera este formato)
     async function guardarCambios() {
-      const datos = hot.getData();
+      if (!hot) { alert('La tabla no está lista'); return; }
+
       const headers = hot.getColHeader();
-      const productos = datos.map(fila => {
+      const datos = hot.getData().filter(row => row.some(cell => cell !== null && String(cell).trim() !== ''));
+
+      // Construir array de objetos con claves según headers
+      const products = datos.map(row => {
         const obj = {};
-        headers.forEach((h, i) => obj[h] = fila[i]);
+        headers.forEach((h, i) => {
+          let val = row[i] ?? '';
+          // Limpiar HTML accidental en Foto
+          if (h === 'Foto') val = String(val).replace(/<[^>]+>/g, '').trim();
+          obj[h] = val;
+        });
         return obj;
       });
 
-      const res = await fetch('/api/save', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(productos)
-      });
+      try {
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          credentials: 'include',               // importante: enviar cookie de sesión
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products })    // <-- formato CORRECTO requerido por server.js
+        });
 
-      if (res.ok) alert('Cambios guardados con éxito');
-      else alert('Error al guardar');
+        if (res.ok) {
+          alert('Cambios guardados con éxito.');
+        } else {
+          const err = await res.json().catch(()=>({}));
+          alert('Error al guardar: ' + (err.error || res.status));
+        }
+      } catch (e) {
+        console.error('Error guardando:', e);
+        alert('Error de red al guardar');
+      }
     }
+
+    document.getElementById('btn-guardar').addEventListener('click', guardarCambios);
+
+    // Logout
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+      location.reload();
+    });
   </script>
 </body>
 </html>
