@@ -1,116 +1,110 @@
-// ===========================
-//  SERVIDOR CATÁLOGO PRODUCTOS
-// ===========================
 import express from "express";
 import session from "express-session";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
+import multer from "multer";
 import xlsx from "xlsx";
+import fs from "fs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
-
-// ===========================
-// CONFIGURACIÓN BÁSICA
-// ===========================
-app.use(express.json());
+app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
-// ===========================
-// SESIÓN (compatible con Render)
-// ===========================
-app.set("trust proxy", 1);
 app.use(
   session({
-    secret: "clave-super-secreta",
+    secret: process.env.SESSION_SECRET || "clave123",
     resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,
-      sameSite: "none",
-      maxAge: 1000 * 60 * 60
-    },
+    saveUninitialized: false
   })
 );
 
-// ===========================
-// CONFIGURACIÓN
-// ===========================
-const PASSWORD = process.env.ADMIN_PASSWORD || "admin";
-const EXCEL_PATH = path.join(__dirname, "productos.xlsx");
+// -------------------------------
+// Cargar Drive Map (carpetas)
+// -------------------------------
+const driveMap = JSON.parse(fs.readFileSync("driveMap.json", "utf-8"));
 
-// ===========================
-// RUTAS API
-// ===========================
+function getDriveURL(folderId, fileId) {
+  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+}
 
-// 🔹 Obtener productos (público)
-app.get("/api/products", async (req, res) => {
-  try {
-    if (!fs.existsSync(EXCEL_PATH))
-      return res.status(404).json({ error: "Archivo productos.xlsx no encontrado" });
+// -------------------------------
+// Leer Excel
+// -------------------------------
+function loadExcel() {
+  const wb = xlsx.readFile("catalog.xlsx");
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return xlsx.utils.sheet_to_json(ws);
+}
 
-    const workbook = xlsx.readFile(EXCEL_PATH);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = xlsx.utils.sheet_to_json(sheet);
-    res.json(data);
-  } catch (err) {
-    console.error("Error leyendo Excel:", err);
-    res.status(500).json({ error: "Error leyendo archivo" });
+// -------------------------------
+// Guardar Excel
+// -------------------------------
+function saveExcel(data) {
+  const ws = xlsx.utils.json_to_sheet(data);
+  const wb = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(wb, ws, "Catalogo");
+  xlsx.writeFile(wb, "catalog.xlsx");
+}
+
+// -------------------------------
+// LOGIN
+// -------------------------------
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
+app.post("/login", (req, res) => {
+  if (req.body.password === process.env.ADMIN) {
+    req.session.logged = true;
+    return res.redirect("/admin");
   }
+  res.render("login", { error: "Contraseña incorrecta" });
 });
 
-// 🔹 Login
-app.post("/api/login", (req, res) => {
-  const { password } = req.body;
-  if (password === PASSWORD) {
-    req.session.loggedIn = true;
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ error: "Contraseña incorrecta" });
-  }
+// -------------------------------
+// ADMIN
+// -------------------------------
+app.get("/admin", (req, res) => {
+  if (!req.session.logged) return res.redirect("/login");
+
+  const items = loadExcel();
+  res.render("admin", { items, categories: Object.keys(driveMap) });
 });
 
-// 🔹 Logout
-app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+app.post("/admin/save", (req, res) => {
+  if (!req.session.logged) return res.send("No autorizado");
+
+  let data = JSON.parse(req.body.data);
+  saveExcel(data);
+  res.send("OK");
 });
 
-// 🔹 Guardar productos (solo admin)
-app.post("/api/save", async (req, res) => {
-  if (!req.session.loggedIn)
-    return res.status(401).json({ error: "No autorizado" });
-
-  try {
-    const { products } = req.body;
-    const ws = xlsx.utils.json_to_sheet(products);
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(wb, ws, "Productos");
-    xlsx.writeFile(wb, EXCEL_PATH);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Error guardando Excel:", err);
-    res.status(500).json({ error: "Error guardando archivo" });
-  }
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => res.redirect("/login"));
 });
 
-// ===========================
-// RUTAS HTML
-// ===========================
+// -------------------------------
+// CATÁLOGO
+// -------------------------------
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  const items = loadExcel();
+
+  // Convertimos cada fila en una URL real de Drive
+  items.forEach(item => {
+    const folderId = driveMap[item.Categoria];
+    if (folderId && item.ImagenID) {
+      item.ImagenURL = getDriveURL(folderId, item.ImagenID);
+    } else {
+      item.ImagenURL = "/noimage.jpg";
+    }
+  });
+
+  res.render("catalog", {
+    items,
+    categories: Object.keys(driveMap)
+  });
 });
 
-app.get("/admin.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin.html"));
-});
-
-// ===========================
-// SERVIDOR
-// ===========================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor ejecutándose en puerto ${PORT}`);
-});
+// -------------------------------
+app.listen(process.env.PORT || 3000, () =>
+  console.log("Servidor iniciado")
+);
