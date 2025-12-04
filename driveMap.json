@@ -1,10 +1,12 @@
 {
-  "ACUARELAS": "ID_CARPETA_ACUARELAS",
-  "DESNUDOS": "ID_CARPETA_DESNUDOS",
-  "CABALLOS": "ID_CARPETA_CABALLOS",
-  "DIBUJOS": "ID_CARPETA_DIBUJOS",
-  "PAISAJES": "ID_CARPETA_PAISAJES",
-  "RETRATOS": "ID_CARPETA_RETRATOS",
-  "LAPIZ": "ID_CARPETA_LAPIZ",
-  "OLEOS": "ID_CARPETA_OLEOS"
+  "ACUARELAS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "DESNUDOS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "CABALLOS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "DIBUJOS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "PAISAJES": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "RETRATOS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "LAPIZ": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA",
+  "OLEOS": "https://drive.google.com/uc?export=view&id=ID-DE-LA-CARPETA"
 }
+
+
